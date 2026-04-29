@@ -23,7 +23,8 @@
 <body>
 
 <h1>Docker Scaffold Plan</h1>
-<p><em>Project:</em> <code>ros2-av-sensor-rig</code> &mdash; ROS2 multi-sensor data collection rig (Velodyne VLP-16, ArduCam UVC, Intel RealSense D415).</p>
+<p><em>Project:</em> <code>ros2-av-sensor-rig</code> &mdash; ROS2 multi-sensor data collection rig (Velodyne VLP-16, ArduCam UVC, Intel RealSense D415).<br>
+<em>Author:</em> Seyed Ali Cheraghi &middot; <a href="https://github.com/seyedalicheraghi/ros2-av-sensor-rig">source on GitHub</a></p>
 
 <h2>1. Goal</h2>
 <p>
@@ -125,7 +126,41 @@ docker compose --profile record up -d recorder
 # Optional: start Foxglove for browser-based viz
 docker compose --profile viz up -d foxglove</pre>
 
-<h2>6. Tradeoffs &amp; Things to Revisit</h2>
+<h2>6. Dev Containers (VS Code Extension)</h2>
+<p>
+  The <strong>Dev Containers</strong> extension (<code>ms-vscode-remote.remote-containers</code>) lets VS Code attach its UI to a running container while the editor backend, language servers, terminals, and debuggers all execute <em>inside</em> that container. The host only runs the VS Code window; everything else (compilers, ROS2, Python interpreter, sensor SDKs) lives in the image defined by <code>docker/Dockerfile</code>.
+</p>
+<p>
+  In this project, opening the repo in VS Code triggers <code>.devcontainer/devcontainer.json</code>, which reuses the <code>bringup</code> service from <code>docker-compose.yml</code>. The result: one click gives you an editor whose <code>colcon</code>, <code>ros2</code>, and <code>rclpy</code> all match the container exactly &mdash; no second toolchain to keep in sync on the host.
+</p>
+<table>
+  <tr><th>Concern</th><th>What Dev Containers gives you</th></tr>
+  <tr>
+    <td>Reproducibility</td>
+    <td>Every contributor edits against the same ROS2 Humble image, same DDS implementation, same sensor SDK versions. No "works on my machine" drift.</td>
+  </tr>
+  <tr>
+    <td>Host hygiene</td>
+    <td>No need to install ROS2, librealsense, or Velodyne deps on the host. Removing the container removes everything.</td>
+  </tr>
+  <tr>
+    <td>IntelliSense accuracy</td>
+    <td>The C++ and Python language servers see the real headers (<code>/opt/ros/humble/include/...</code>) so autocomplete and go-to-definition actually work for ROS2 symbols.</td>
+  </tr>
+  <tr>
+    <td>Pre-wired tooling</td>
+    <td>The <code>customizations.vscode.extensions</code> block auto-installs the ROS, Python, C++, CMake, and YAML extensions inside the container on first open.</td>
+  </tr>
+  <tr>
+    <td>Same runtime as <code>docker compose</code></td>
+    <td>Because the dev container <em>is</em> the <code>bringup</code> service, anything that runs from a VS Code terminal behaves identically to <code>docker compose exec bringup</code> &mdash; including hardware passthrough.</td>
+  </tr>
+</table>
+<p>
+  Usage: install the <em>Dev Containers</em> extension in VS Code, open this repo, then run <strong>Dev Containers: Reopen in Container</strong> from the command palette. VS Code starts the compose stack, attaches to <code>bringup</code>, and drops you into <code>/workspace</code> as the <code>ros</code> user.
+</p>
+
+<h2>7. Tradeoffs &amp; Things to Revisit</h2>
 <ul>
   <li><strong><code>privileged: true</code></strong> &mdash; convenient for dev; production should narrow to explicit <code>--device</code> and <code>cap_add</code> entries.</li>
   <li><strong>No GPU reservation by default</strong> &mdash; add an NVIDIA runtime block when RealSense post-processing or large RViz scenes need acceleration.</li>
