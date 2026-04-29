@@ -1,0 +1,3 @@
+# ArduCam UVC — pin to a stable name so launch files don't break across reboots.
+# Find the idVendor/idProduct with: lsusb
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0c45", SYMLINK+="arducam", MODE="0666", GROUP="video"

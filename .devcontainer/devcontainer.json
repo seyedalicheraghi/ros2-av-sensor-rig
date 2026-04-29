@@ -1,0 +1,23 @@
+{
+  "name": "ros2-av-sensor-rig (ROS2 Humble)",
+  "dockerComposeFile": ["../docker/docker-compose.yml"],
+  "service": "bringup",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "ros",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-vscode.cpptools",
+        "twxs.cmake",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "ros.distro": "humble",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "shutdownAction": "stopCompose"
+}

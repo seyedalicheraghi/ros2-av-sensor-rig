@@ -1,0 +1,6 @@
+# Intel RealSense D415 — install upstream librealsense rules on the HOST:
+#   sudo cp /etc/udev/rules.d/99-realsense-libusb.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# The container picks the device up via /dev/bus/usb passthrough.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="8086", ATTRS{idProduct}=="0ad3", MODE="0666", GROUP="plugdev"

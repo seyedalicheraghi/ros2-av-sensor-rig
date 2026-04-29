@@ -1,0 +1,48 @@
+services:
+  bringup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ros2-av-sensor-rig:humble
+    container_name: rig_bringup
+    network_mode: host
+    ipc: host
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ../:/workspace:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    stdin_open: true
+    tty: true
+    command: bash
+
+  recorder:
+    image: ros2-av-sensor-rig:humble
+    container_name: rig_recorder
+    depends_on:
+      - bringup
+    network_mode: host
+    ipc: host
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ../:/workspace:rw
+      - ../rosbags:/workspace/rosbags:rw
+    command: >
+      bash -lc "ros2 launch data_recorder record_all.launch.py"
+    profiles: ["record"]
+
+  foxglove:
+    image: ghcr.io/foxglove/studio:latest
+    container_name: rig_foxglove
+    ports:
+      - "8080:8080"
+    profiles: ["viz"]

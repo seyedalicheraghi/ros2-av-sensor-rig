@@ -1,0 +1,3 @@
+# Velodyne VLP-16 streams UDP packets, no /dev node — kept here for completeness.
+# If using a USB-to-Ethernet adapter, you can pin the interface name:
+# SUBSYSTEM=="net", ACTION=="add", ATTRS{address}=="aa:bb:cc:dd:ee:ff", NAME="velodyne0"

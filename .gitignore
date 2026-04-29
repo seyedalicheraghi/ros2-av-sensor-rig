@@ -1,0 +1,24 @@
+# ROS2 build artifacts
+build/
+install/
+log/
+
+# Recorded rosbags can be large — keep the folder, ignore contents
+rosbags/*
+!rosbags/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Claude Code local context (personal — not for the public repo)
+CLAUDE.md
+GLOBALCLAUDE.md

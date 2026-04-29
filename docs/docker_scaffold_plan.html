@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Docker Scaffold Plan — ros2-av-sensor-rig</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 880px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3rem; }
+  h2 { margin-top: 2rem; color: #1a4d8a; }
+  h3 { color: #333; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; }
+  code { background: #f3f3f3; padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+  pre { background: #1e1e1e; color: #e6e6e6; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78em; margin-left: 6px; }
+  .default { background: #d1f5d3; color: #18632a; }
+  .note { background: #fff8d6; border-left: 4px solid #e2c200; padding: 10px 14px; margin: 1rem 0; border-radius: 4px; }
+  ul li { margin-bottom: 0.3rem; }
+</style>
+</head>
+<body>
+
+<h1>Docker Scaffold Plan</h1>
+<p><em>Project:</em> <code>ros2-av-sensor-rig</code> &mdash; ROS2 multi-sensor data collection rig (Velodyne VLP-16, ArduCam UVC, Intel RealSense D415).</p>
+
+<h2>1. Goal</h2>
+<p>
+  Containerize the full ROS2 runtime so the host stays clean, sensor SDKs are pinned to known-good versions, and recorded rosbags are reproducible across machines and over time.
+</p>
+
+<h2>2. Defaults Chosen</h2>
+<table>
+  <tr><th>Decision</th><th>Choice</th><th>Why</th></tr>
+  <tr>
+    <td>ROS2 distro</td>
+    <td>Humble Hawksbill <span class="pill default">default</span></td>
+    <td>LTS until May 2027; broadest driver coverage (Velodyne, RealSense, usb_cam all stable on Humble).</td>
+  </tr>
+  <tr>
+    <td>Base image</td>
+    <td><code>ros:humble-ros-base</code></td>
+    <td>Smaller than <code>desktop-full</code>; we add only the packages we need.</td>
+  </tr>
+  <tr>
+    <td>Compose vs single image</td>
+    <td>Docker Compose</td>
+    <td>Lets us split <code>bringup</code>, <code>recorder</code>, and <code>foxglove</code> so the recorder can be restarted without touching live drivers.</td>
+  </tr>
+  <tr>
+    <td>DDS implementation</td>
+    <td>Cyclone DDS</td>
+    <td>Industry default for ROS2; better multicast behavior than the FastDDS default in containerized setups.</td>
+  </tr>
+  <tr>
+    <td>GUI strategy</td>
+    <td>X11 socket <strong>and</strong> Foxglove Studio</td>
+    <td>RViz works locally via X11; Foxglove gives a browser UI for remote viewing &mdash; no commitment needed up front.</td>
+  </tr>
+  <tr>
+    <td>Bag persistence</td>
+    <td>Bind-mount <code>./rosbags</code></td>
+    <td>Recordings survive container restarts and are inspectable from the host.</td>
+  </tr>
+  <tr>
+    <td>Bag format</td>
+    <td>MCAP (via <code>rosbag2-storage-mcap</code>)</td>
+    <td>Industry-standard for autonomy data; works natively with Foxglove. SQLite3 is still available as fallback.</td>
+  </tr>
+</table>
+
+<h2>3. Files Created</h2>
+<table>
+  <tr><th>Path</th><th>Purpose</th></tr>
+  <tr><td><code>docker/Dockerfile</code></td><td>Image definition: ROS2 Humble + sensor packages + non-root <code>ros</code> user.</td></tr>
+  <tr><td><code>docker/entrypoint.sh</code></td><td>Sources <code>/opt/ros</code> and the colcon workspace install before running the user's command.</td></tr>
+  <tr><td><code>docker/docker-compose.yml</code></td><td>Three services: <code>bringup</code> (default), <code>recorder</code> (profile <em>record</em>), <code>foxglove</code> (profile <em>viz</em>).</td></tr>
+  <tr><td><code>docker/udev/99-velodyne.rules</code></td><td>Optional NIC pinning &mdash; Velodyne is network-attached, no <code>/dev</code> node.</td></tr>
+  <tr><td><code>docker/udev/99-realsense.rules</code></td><td>USB permissions for the D415 (also install upstream librealsense rules on the host).</td></tr>
+  <tr><td><code>docker/udev/99-arducam.rules</code></td><td>Pins the ArduCam to <code>/dev/arducam</code> so launch files don't break on reboot.</td></tr>
+  <tr><td><code>docker/README.md</code></td><td>Quick-start guide and passthrough cheatsheet.</td></tr>
+  <tr><td><code>.devcontainer/devcontainer.json</code></td><td>VS Code Dev Container config that reuses the same compose service.</td></tr>
+</table>
+
+<h2>4. Hardware Passthrough Strategy</h2>
+<table>
+  <tr><th>Sensor</th><th>Mechanism</th><th>Why this and not something else</th></tr>
+  <tr>
+    <td>Velodyne VLP-16</td>
+    <td><code>network_mode: host</code></td>
+    <td>The sensor blasts UDP on a fixed port; bridged networking would drop packets at high rate.</td>
+  </tr>
+  <tr>
+    <td>RealSense D415</td>
+    <td><code>/dev/bus/usb</code> mount + udev rules on host</td>
+    <td>librealsense talks raw USB; we need the bus device, not just <code>/dev/video*</code>.</td>
+  </tr>
+  <tr>
+    <td>ArduCam UVC</td>
+    <td><code>/dev</code> mount + symlink rule</td>
+    <td>Standard V4L2 path. Symlink keeps device name stable.</td>
+  </tr>
+  <tr>
+    <td>Display (RViz)</td>
+    <td><code>/tmp/.X11-unix</code> + <code>DISPLAY</code> env</td>
+    <td>Cheapest path on Linux; no GPU passthrough required for basic viz.</td>
+  </tr>
+</table>
+
+<h2>5. Typical Workflow</h2>
+<pre>xhost +local:docker
+docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml up -d bringup
+docker compose -f docker/docker-compose.yml exec bringup bash
+
+# Inside the container:
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch vehicle_bringup full_stack.launch.py
+
+# Optional: start the recorder in its own container
+docker compose --profile record up -d recorder
+
+# Optional: start Foxglove for browser-based viz
+docker compose --profile viz up -d foxglove</pre>
+
+<h2>6. Tradeoffs &amp; Things to Revisit</h2>
+<ul>
+  <li><strong><code>privileged: true</code></strong> &mdash; convenient for dev; production should narrow to explicit <code>--device</code> and <code>cap_add</code> entries.</li>
+  <li><strong>No GPU reservation by default</strong> &mdash; add an NVIDIA runtime block when RealSense post-processing or large RViz scenes need acceleration.</li>
+  <li><strong>Single image for all three services</strong> &mdash; keeps build cache hot. We can split per-sensor images later if vendor-SDK update cadence diverges.</li>
+  <li><strong>Cyclone DDS pinned via env</strong> &mdash; if the host ROS2 install uses FastDDS, topic discovery may fail until both sides match.</li>
+</ul>
+
+<div class="note">
+  <strong>Next step:</strong> add <code>package.xml</code> and <code>CMakeLists.txt</code> to each ROS2 package under <code>src/</code> so <code>colcon build</code> succeeds inside the container. Tell me which package to scaffold first &mdash; I'd suggest <code>vehicle_bringup</code> since it ties everything together.
+</div>
+
+</body>
+</html>
